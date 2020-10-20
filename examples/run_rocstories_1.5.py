@@ -489,7 +489,8 @@ def main(MARGIN=0.15):
 
     if args.fp16:
         model.half()
-    model.cuda()
+    if not args.no_cuda:
+        model.cuda()
     if args.local_rank != -1:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank],
                                                           output_device=args.local_rank)
@@ -582,7 +583,7 @@ def main(MARGIN=0.15):
             # for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
             for step, batch in enumerate(train_dataloader):
                 model.train()
-                batch = tuple(t.cuda() for t in batch)
+                batch = tuple(t.cuda() if not args.no_cuda else t for t in batch)
                 input_ids, input_mask, segment_ids, label_ids = batch
                 loss = model(input_ids, segment_ids, input_mask, label_ids)
                 if n_gpu > 1:
