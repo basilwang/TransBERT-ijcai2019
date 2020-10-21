@@ -92,9 +92,9 @@ def read_nyt_event_examples(input_file, is_training):
             et_subj, et_verb, et_obj = et.split('|')
             en_subj, en_verb, en_obj = en.split('|')
             examples.append(NYTEventExample(
-                ei=' '.join(ei_subj, ei_verb, ei_obj),
-                et=' '.join(et_subj, et_verb, et_obj),
-                en=' '.join(en_subj, en_verb, en_obj),
+                ei=' '.join([ei_subj, ei_verb, ei_obj]),
+                et=' '.join([et_subj, et_verb, et_obj]),
+                en=' '.join([en_subj, en_verb, en_obj]),
             ))
 
     return examples
