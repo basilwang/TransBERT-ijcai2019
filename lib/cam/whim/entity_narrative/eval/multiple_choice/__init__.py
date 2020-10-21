@@ -55,7 +55,17 @@ Document:
         document = RichEventDocument.from_text("\n".join(sections[4]))
         entity = document.entities[entity_number]
         # Read context events
-        context_events = [Event.from_text(line, document.entities) for line in sections[1]]
+        # basilwang 2020-10-21 strip E<>
+        # context_events = [Event.from_text(line, document.entities) for line in sections[1]]
+        context_events =[]
+        for line in sections[1]:
+            context_event = Event.from_text(line, document.entities).to_string_entity_text().replace('E<','').replace('>','')
+            predicate = context_event[0:context_event.index('(')]
+            left_part = context_event[context_event.index('('):]
+            insert_index = left_part.index(',')
+            context_event = left_part[0:insert_index] + ',' + predicate + left_part[insert_index:]
+            context_event = context_event.replace('(','').replace(')','').replace('--','')
+            context_events.append(context_event)
         # Multiple choices
         choices = [Event.from_text(line, document.entities) for line in sections[2]]
         # Target choice index
