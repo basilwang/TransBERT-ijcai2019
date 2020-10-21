@@ -31,7 +31,9 @@ def _entity_id(arg, entity_list, tolerate_missing_entities=False):
         else:
             try:
                 # Look for the entity (by identity) in the entity list
-                entity_id = (index for index, entity in enumerate(entity_list) if entity is arg).next()
+                # basilwang 2020-10-21 python3 use next(sth)
+                # entity_id = (index for index, entity in enumerate(entity_list) if entity is arg).next()
+                entity_id = next((index for index, entity in enumerate(entity_list) if entity is arg))
             except StopIteration:
                 if tolerate_missing_entities:
                     return arg.to_text()

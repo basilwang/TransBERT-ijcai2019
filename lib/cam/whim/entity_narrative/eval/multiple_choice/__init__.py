@@ -57,17 +57,37 @@ Document:
         # Read context events
         # basilwang 2020-10-21 strip E<>
         # context_events = [Event.from_text(line, document.entities) for line in sections[1]]
-        context_events =[]
+        context_events = ''
         for line in sections[1]:
             context_event = Event.from_text(line, document.entities).to_string_entity_text().replace('E<','').replace('>','')
             predicate = context_event[0:context_event.index('(')]
             left_part = context_event[context_event.index('('):]
-            insert_index = left_part.index(',')
+            print(left_part)
+            try:
+                insert_index = left_part.index(',')
+            except ValueError as ve:
+                insert_index = len(left_part)
+
             context_event = left_part[0:insert_index] + ',' + predicate + left_part[insert_index:]
             context_event = context_event.replace('(','').replace(')','').replace('--','')
-            context_events.append(context_event)
+            context_events += context_event + ','
+        context_events = context_events.replace(',',' ')
         # Multiple choices
-        choices = [Event.from_text(line, document.entities) for line in sections[2]]
+        #choices = [Event.from_text(line, document.entities) for line in sections[2]]
+        choices = []
+        for line in sections[2]:
+            choice = Event.from_text(line, document.entities).to_string_entity_text().replace('E<','').replace('>','')
+            predicate = choice[0:choice.index('(')]
+            left_part = choice[choice.index('('):]
+            print(left_part)
+            try:
+                insert_index = left_part.index(',')
+            except ValueError as ve:
+                insert_index = len(left_part)
+
+            choice = left_part[0:insert_index] + ',' + predicate + left_part[insert_index:]
+            choice = choice.replace('(', '').replace(')', '').replace('--', '')
+            choices.append(choice)
         # Target choice index
         target = int(sections[3][0])
         return MultipleChoiceQuestion(context_events, choices, target, entity, document=document)
