@@ -25,7 +25,7 @@ import logging
 
 from .file_utils import cached_path
 
-logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
+logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s', 
                     datefmt = '%m/%d/%Y %H:%M:%S',
                     level = logging.INFO)
 logger = logging.getLogger(__name__)
@@ -124,11 +124,11 @@ class BertTokenizer(object):
                     ', '.join(PRETRAINED_VOCAB_ARCHIVE_MAP.keys()),
                     vocab_file))
             return None
-        #if resolved_vocab_file == vocab_file:
-        #    logger.info("loading vocabulary file {}".format(vocab_file))
-        #else:
-        #    logger.info("loading vocabulary file {} from cache at {}".format(
-        #        vocab_file, resolved_vocab_file))
+        if resolved_vocab_file == vocab_file:
+            logger.info("loading vocabulary file {}".format(vocab_file))
+        else:
+            logger.info("loading vocabulary file {} from cache at {}".format(
+                vocab_file, resolved_vocab_file))
         # Instantiate tokenizer.
         tokenizer = cls(resolved_vocab_file, *inputs, **kwargs)
         return tokenizer
@@ -196,7 +196,7 @@ class BasicTokenizer(object):
             i += 1
 
         return ["".join(x) for x in output]
-
+    
     def _tokenize_chinese_chars(self, text):
         """Adds whitespace around any CJK character."""
         output = []
@@ -229,9 +229,9 @@ class BasicTokenizer(object):
             (cp >= 0xF900 and cp <= 0xFAFF) or  #
             (cp >= 0x2F800 and cp <= 0x2FA1F)):  #
             return True
-
+    
         return False
-
+    
     def _clean_text(self, text):
         """Performs invalid character removal and whitespace cleanup on text."""
         output = []

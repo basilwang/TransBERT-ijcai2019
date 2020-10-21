@@ -1,1 +1,0 @@
-Common utilities for use across my WHIM codebases.
