@@ -8,7 +8,7 @@ def module_options_to_django_fields(opt_def_dict):
 
     """
     from django.forms.fields import CharField, IntegerField, FloatField, BooleanField
-    from cam.whim.utils.base import str_to_bool
+    from whim import str_to_bool
 
     fields = {}
 

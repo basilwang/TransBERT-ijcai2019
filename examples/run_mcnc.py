@@ -20,8 +20,7 @@ import logging
 import os,sys
 import argparse
 import random
-from tqdm import tqdm, trange
-from run_copa import do_evaluation
+from tqdm import trange
 import numpy as np
 import torch
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
@@ -31,7 +30,7 @@ from pytorch_pretrained_bert.tokenization import BertTokenizer
 from pytorch_pretrained_bert.modeling import BertForMultipleChoice,BertForMultipleChoiceMarginLoss
 from pytorch_pretrained_bert.optimization import BertAdam
 from pytorch_pretrained_bert.file_utils import PYTORCH_PRETRAINED_BERT_CACHE
-from whim.entity_narrative.eval.multiple_choice import MultipleChoiceQuestion
+from whim.entity_narrative import MultipleChoiceQuestion
 
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt = '%m/%d/%Y %H:%M:%S',
