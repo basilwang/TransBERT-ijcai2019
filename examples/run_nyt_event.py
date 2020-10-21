@@ -49,6 +49,7 @@ class NYTEventExample(object):
             et,
             en,
         ]
+        self.label = 0
 
     def __str__(self):
         return self.__repr__()
@@ -59,6 +60,9 @@ class NYTEventExample(object):
             f"nextET: {self.next[0]}",
             f"nextEN: {self.next[1]}"
         ]
+
+        if self.label is not None:
+            l.append(f"label: {self.label}")
 
         return ", ".join(l)
 
@@ -168,7 +172,6 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
 
         features.append(
             InputFeatures(
-                example_id = example.roc_id,
                 choices_features = choices_features,
                 label = label
             )
