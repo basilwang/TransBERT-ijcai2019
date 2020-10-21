@@ -69,12 +69,12 @@ class NYTEventExample(object):
 
 class InputFeatures(object):
     def __init__(self,
-                 example_id,
+                 # example_id,
                  choices_features,
                  label
 
     ):
-        self.example_id = example_id
+        # self.example_id = example_id
         self.choices_features = [
             {
                 'input_ids': input_ids,
