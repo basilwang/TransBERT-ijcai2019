@@ -629,6 +629,9 @@ def main(MARGIN=0.15):
                     #             predict_on_test(model,test_dataloader,args,epoch,best_eval_acc)
                     #         print(best_eval_acc)
                     #         # torch.save(model.state_dict(), os.path.join(args.output_dir, f"pytorch_model.bin"))
+            model_save_dir = os.path.join(args.output_dir, f'model{epoch}')
+            os.makedirs(model_save_dir, exist_ok=True)
+            torch.save(model.state_dict(), os.path.join(model_save_dir, f"pytorch_model.bin"))
         print(best_eval_acc,args.seed,args.margin,args.do_margin_loss,args.learning_rate,args.bert_model,sys.argv[0])
         result=f"best_eval_acc={best_eval_acc},args.seed={args.seed},args.do_margin_loss={args.do_margin_loss},args.margin={args.margin},best_step={best_step},train_batch_size={args.train_batch_size},eval_size={eval_size},script_name={sys.argv[0]},model={args.bert_model},learning_rate={args.learning_rate},num_train_epochs={args.num_train_epochs},max_seq_length={args.max_seq_length}"
         write_result_to_file(args,result)
