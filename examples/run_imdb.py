@@ -256,12 +256,15 @@ class ImdbProcessor(DataProcessor):
         """Creates examples for the training and dev sets."""
         examples = []
         for (i, line) in enumerate(lines):
-            if len(line)!=2:
-                print(len(line))
+            # if len(line)!=2:
+            #     print(len(line))
+            #     continue
+            if i == 0:
+                # id sentiment review
                 continue
             guid = "%s-%s" % (set_type, len(examples))
-            text_a = line[1]
-            label = str(line[0])
+            text_a = line[2]
+            label = str(line[1])
             if label not in ['0','1']:
                 print(label)
                 continue
@@ -589,7 +592,8 @@ def main():
 
     if args.fp16:
         model.half()
-    model.cuda()
+    if not args.no_cuda:
+        model.cuda()
     if args.local_rank != -1:
         try:
             from apex.parallel import DistributedDataParallel as DDP
@@ -662,7 +666,8 @@ def main():
             for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
             # for step, batch in enumerate(train_dataloader):
                 model.train()
-                batch = tuple(t.cuda() for t in batch)
+                # batch = tuple(t.cuda() for t in batch)
+                batch = tuple(t.cuda()  if not args.no_cuda else t for t in batch)
                 input_ids, input_mask, segment_ids, label_ids = batch
                 loss = model(input_ids, segment_ids, input_mask, label_ids)
                 if n_gpu > 1:
