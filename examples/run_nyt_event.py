@@ -309,11 +309,17 @@ def main(MARGIN=0.15):
     parser = argparse.ArgumentParser()
 
     ## Required parameters
-    parser.add_argument("--data_dir",
+    parser.add_argument("--dataset_file",
                         default=None,
                         type=str,
                         required=True,
-                        help="The input data dir. Should contain the .csv files (or other data files) for the task.")
+                        help="The train dataset file. it is the .txt files (or other data files) for the task.")
+    parser.add_argument("--dev_file",
+                        default=None,
+                        type=str,
+                        required=False,
+                        help="The dev data file. it is the .txt files (or other data files) for the task.")
+
     parser.add_argument("--bert_model", default=None, type=str, required=True,
                         help="Bert pre-trained model selected in the list: bert-base-uncased, "
                              "bert-large-uncased, bert-base-cased, bert-base-multilingual, bert-base-chinese.")
@@ -456,11 +462,11 @@ def main(MARGIN=0.15):
     eval_size=0
     if args.do_train:
         # train_examples = read_roc_examples(os.path.join(args.data_dir, 'val.csv'), is_training = True)
-        train_examples = read_nyt_event_examples(os.path.join(args.data_dir, '1994.txt'), is_training = True)
+        train_examples = read_nyt_event_examples(args.dataset_file, is_training = True)
         # train_examples = read_roc_examples(os.path.join(args.data_dir, 'val_test.csv'), is_training = True)
         # train_examples = read_roc_examples(os.path.join(args.data_dir, 'val_test_valnew.csv'), is_training = True)
         if args.do_eval:
-            eval_examples = read_nyt_event_examples(os.path.join(args.data_dir, 'valnew.csv'), is_training = True)
+            eval_examples = read_nyt_event_examples(args.dev_file, is_training = True)
             # train_examples=train_examples+eval_examples[0:1000]
             # eval_examples=eval_examples[1000:]
             eval_size=len(eval_examples)
