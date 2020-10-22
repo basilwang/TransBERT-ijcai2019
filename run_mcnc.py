@@ -686,7 +686,7 @@ def main(MARGIN=0.15):
 
     if args.do_prediction:
         _, test_accuracy = do_evaluation(model, test_dataloader, args, is_training=False)
-        print("test accurary is :" + test_accuracy)
+        print("test accurary is :" + str(test_accuracy))
 
 
 if __name__ == "__main__":
