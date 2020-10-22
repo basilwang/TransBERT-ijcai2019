@@ -62,7 +62,6 @@ Document:
             context_event = Event.from_text(line, document.entities).to_string_entity_text().replace('E<','').replace('>','')
             predicate = context_event[0:context_event.index('(')]
             left_part = context_event[context_event.index('('):]
-            print(left_part)
             try:
                 insert_index = left_part.index(',')
             except ValueError as ve:
@@ -70,6 +69,7 @@ Document:
 
             context_event = left_part[0:insert_index] + ',' + predicate + left_part[insert_index:]
             context_event = context_event.replace('(','').replace(')','').replace('--','')
+            print(context_event)
             context_events += context_event + ','
         context_events = context_events.replace(',',' ')
         # Multiple choices
@@ -79,7 +79,6 @@ Document:
             choice = Event.from_text(line, document.entities).to_string_entity_text().replace('E<','').replace('>','')
             predicate = choice[0:choice.index('(')]
             left_part = choice[choice.index('('):]
-            print(left_part)
             try:
                 insert_index = left_part.index(',')
             except ValueError as ve:
@@ -87,6 +86,7 @@ Document:
 
             choice = left_part[0:insert_index] + ',' + predicate + left_part[insert_index:]
             choice = choice.replace('(', '').replace(')', '').replace('--', '')
+            print(choice)
             choices.append(choice)
         # Target choice index
         target = int(sections[3][0])
