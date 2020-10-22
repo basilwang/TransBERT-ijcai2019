@@ -667,7 +667,7 @@ def main(MARGIN=0.15):
                         optimizer.step()
                     model.zero_grad()
                     global_step += 1
-                    if epoch>0:
+                    if args.do_eval and epoch>0:
                         logits_all,eval_accuracy=do_evaluation(model,eval_dataloader,args,is_training=False)
                         if best_eval_acc<eval_accuracy:
                             best_eval_acc=eval_accuracy
