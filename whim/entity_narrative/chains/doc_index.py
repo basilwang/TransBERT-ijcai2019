@@ -1,7 +1,8 @@
 from itertools import groupby
 from operator import itemgetter
 import os
-import cPickle as pickle
+# import cPickle as pickle
+import pickle
 import sys
 
 from whim.entity_narrative.chains.document import RichEventDocument, rich_event_doc_files, RichEventDocumentCorpus
@@ -40,7 +41,7 @@ class RichDocumentVerbIndex(object):
             num_docs = limit
         pbar = None
         if progress:
-            print "Indexing %d documents" % num_docs
+            print("Indexing %d documents" % num_docs)
             pbar = get_progress_bar(num_docs, title="Indexing documents", counter=True)
 
         # Go through every event in all the documents, indexing the verb lemmas
@@ -60,8 +61,8 @@ class RichDocumentVerbIndex(object):
             pbar.finish()
 
         if progress:
-            print "Indexed %d verb types" % len(verb_index)
-            print "Outputting index to %s" % output_filename
+            print("Indexed %d verb types" % len(verb_index))
+            print("Outputting index to %s" % output_filename)
         with open(output_filename, 'w') as output_file:
             pickle.dump(verb_index, output_file)
 
@@ -162,7 +163,7 @@ class RichDocumentVerbChainIndex(object):
             num_docs = limit
         pbar = None
         if progress:
-            print "Indexing %d documents" % num_docs
+            print("Indexing %d documents" % num_docs)
             pbar = get_progress_bar(num_docs, title="Indexing documents", counter=True)
 
         # Go through every event in all the documents, indexing the verb lemmas
@@ -187,8 +188,8 @@ class RichDocumentVerbChainIndex(object):
             pbar.finish()
 
         if progress:
-            print "Indexed %d verb types" % len(verb_index)
-            print "Outputting index to %s" % output_filename
+            print("Indexed %d verb types" % len(verb_index))
+            print("Outputting index to %s" % output_filename)
         with open(output_filename, 'w') as output_file:
             pickle.dump({
                 "index": verb_index,

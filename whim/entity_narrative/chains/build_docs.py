@@ -23,24 +23,24 @@ if __name__ == "__main__":
     output_dir = opts.output_dir
     # Clear any existing output and make sure the output dir exists
     if os.path.exists(output_dir) and not opts.skip_done:
-        print "Clearing up old output"
+        print("Clearing up old output")
         shutil.rmtree(output_dir)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    print "Looking up original texts from %s" % opts.texts
+    print("Looking up original texts from %s" % opts.texts)
     text_corpus = MultiFileTextCorpus(opts.texts, build_dictionary=False)
 
-    print "Looking up coref output in %s" % opts.coref_dir
-    print "Looking up dependency graphs in %s" % opts.deps_dir
-    print "Looking up POS tags in %s" % opts.pos_dir
-    print "Outputting documents to %s" % output_dir
+    print("Looking up coref output in %s" % opts.coref_dir)
+    print("Looking up dependency graphs in %s" % opts.deps_dir)
+    print("Looking up POS tags in %s" % opts.pos_dir)
+    print("Outputting documents to %s" % output_dir)
 
     if opts.skip_done:
-        print "Reading existing corpus in %s" % output_dir
+        print("Reading existing corpus in %s" % output_dir)
         rich_corpus = RichEventDocumentCorpus(output_dir, tarred=opts.tarred)
         skip_files = [corpus_filename for archive_name, corpus_filename in rich_corpus.list_archive_iter()]
-        print "Skipping %d files already found in output corpus" % len(skip_files)
+        print("Skipping %d files already found in output corpus" % len(skip_files))
     else:
         skip_files = []
 

@@ -1,5 +1,7 @@
 import argparse
-from StringIO import StringIO
+# basilwang 2020-10-22 python 2 usage
+# from StringIO import StringIO
+from io import StringIO
 import random
 import tarfile
 import os
@@ -31,32 +33,32 @@ if __name__ == "__main__":
     filter_parser.add_argument("output_dir", help="Directory to output document files to")
     opts = parser.parse_args()
 
-    print "Loading index..."
+    print("Loading index...")
     index = RichDocumentVerbIndex.load(opts.verbs_index)
-    print "%d verbs in corpus" % len(index.verb_index)
+    print("%d verbs in corpus" % len(index.verb_index))
 
     # From the index, we have easy access to the number of occurrences of each verb
     # Get all the counts and plot the distribution
     verb_counts = [(v, len(index.verb_index[v])) for v in index.verb_index]
 
     if opts.command == "stats":
-        print "Verb count distribution stats"
-        print "============================="
+        print("Verb count distribution stats")
+        print("=============================")
         count_array = numpy.array([c for (v, c) in verb_counts])
         count_cum = numpy.cumsum(numpy.bincount(count_array), dtype=numpy.float64)
         count_cum /= count_cum[-1]
         count_cum *= 100.
         for max_count in [1, 5, 10, 15, 20, 25, 30]:
-            print "%.4g%% of verb types have counts <= %d" % (count_cum[max_count], max_count)
+            print("%.4g%% of verb types have counts <= %d" % (count_cum[max_count], max_count))
 
         print
-        print "First percentile -> count threshold of %d" % int(numpy.argmax(count_cum >= 1.))
-        print "10th percentile -> count threshold of %d" % int(numpy.argmax(count_cum >= 10.))
-        print "20th percentile -> count threshold of %d" % int(numpy.argmax(count_cum >= 20.))
+        print("First percentile -> count threshold of %d" % int(numpy.argmax(count_cum >= 1.)))
+        print("10th percentile -> count threshold of %d" % int(numpy.argmax(count_cum >= 10.)))
+        print("20th percentile -> count threshold of %d" % int(numpy.argmax(count_cum >= 20.)))
 
         def _sample(start, stop):
-            print "\nSample of verbs with %s <= count < %s:" % (start, stop)
-            print "  %s" % "\n  ".join(random.sample([v for (v, c) in verb_counts if start <= c < stop], 10))
+            print("\nSample of verbs with %s <= count < %s:" % (start, stop))
+            print("  %s" % "\n  ".join(random.sample([v for (v, c) in verb_counts if start <= c < stop], 10)))
 
         _sample(5, 10)
         _sample(15, 20)
@@ -66,25 +68,25 @@ if __name__ == "__main__":
         _sample(95, 100)
 
         graph_filename = "verbs-0-30.pdf"
-        print "Outputting verbs with 0-30 counts to %s" % graph_filename
+        print("Outputting verbs with 0-30 counts to %s" % graph_filename)
         plt.figure()
         plt.hist([c for (v, c) in verb_counts if c < 30])
         plt.savefig(graph_filename)
 
         graph_filename = "verbs-0-100.pdf"
-        print "Outputting verbs with 0-100 counts to %s" % graph_filename
+        print("Outputting verbs with 0-100 counts to %s" % graph_filename)
         plt.figure()
         plt.hist([c for (v, c) in verb_counts if c < 100], bins=100)
         plt.savefig(graph_filename)
 
         graph_filename = "verbs-100-500.pdf"
-        print "Outputting verbs with 100-500 counts to %s" % graph_filename
+        print("Outputting verbs with 100-500 counts to %s" % graph_filename)
         plt.figure()
         plt.hist([c for (v, c) in verb_counts if 100 <= c < 500], bins=150)
         plt.savefig(graph_filename)
 
         graph_filename = "verbs-200-.pdf"
-        print "Outputting verbs with 200 or more counts to %s" % graph_filename
+        print("Outputting verbs with 200 or more counts to %s" % graph_filename)
         plt.figure()
         plt.hist([c for (v, c) in verb_counts if c >= 200], bins=1000)
         plt.savefig(graph_filename)
@@ -92,21 +94,21 @@ if __name__ == "__main__":
         output_dir = opts.output_dir
         # Clear any existing output and make sure the output dir exists
         if os.path.exists(output_dir):
-            print "Clearing up old output..."
+            print("Clearing up old output...")
             shutil.rmtree(output_dir)
         os.makedirs(output_dir)
 
         included_verbs = [v for (v, c) in verb_counts if c >= opts.threshold]
-        print "Filter will remove %d verb types, leaving %d" % (len(verb_counts)-len(included_verbs),
-                                                                len(included_verbs))
+        print("Filter will remove %d verb types, leaving %d" % (len(verb_counts)-len(included_verbs),
+                                                                len(included_verbs)))
         # Output a list of the verbs we're keeping
-        print "Outputting verb list to %s" % os.path.join(output_dir, "predicates.meta")
+        print("Outputting verb list to %s" % os.path.join(output_dir, "predicates.meta"))
         with open(os.path.join(output_dir, "predicates.meta"), 'w') as predicates_file:
             predicates_file.write("\n".join(included_verbs))
 
-        print "Counting docs"
+        print("Counting docs")
         num_docs = len(index.corpus)
-        print "Processing %d documents" % num_docs
+        print("Processing %d documents" % num_docs)
         pbar = get_progress_bar(num_docs, title="Filtering", counter=True)
         # Do the filtering: read in each document
         current_archive = None

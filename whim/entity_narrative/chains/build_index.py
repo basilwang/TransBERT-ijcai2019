@@ -17,7 +17,7 @@ if __name__ == "__main__":
     opts = parser.parse_args()
 
     # Prepare a corpus for the input documents
-    print "Loading corpus"
+    print("Loading corpus")
     corpus = RichEventDocumentCorpus(opts.doc_dir, tarred=opts.tarred, index_tars=False)
 
     if opts.chains:

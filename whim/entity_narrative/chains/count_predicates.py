@@ -14,13 +14,13 @@ if __name__ == "__main__":
     opts = parser.parse_args()
 
     # Prepare a corpus for the input documents
-    print "Loading corpus"
+    print("Loading corpus")
     corpus = RichEventDocumentCorpus(opts.doc_dir, tarred=opts.tarred, index_tars=False)
 
     num_docs = len(corpus)
-    print "%d documents" % num_docs
+    print("%d documents" % num_docs)
     output_filename = os.path.join(opts.doc_dir, "predicate_counts")
-    print "Outputting to %s" % output_filename
+    print("Outputting to %s" % output_filename)
     pbar = get_progress_bar(num_docs, title="Counting")
 
     predicate_counter = Counter()
