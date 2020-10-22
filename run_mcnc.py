@@ -269,6 +269,52 @@ def predict_on_test(model,eval_dataloader,args,epoch,best_eval_acc):
     output_csv.to_csv(os.path.join(args.data_dir, f'answer_testnew_{best_eval_acc}_{epoch}_{args.do_margin_loss}_{args.margin}_{args.seed}_{model_name}.txt'),index=False,float_format='%.f')
 
 
+def do_evaluation(model,eval_dataloader,args,is_training=False):
+    if is_training:
+        eval_flag='train'
+    else:
+        eval_flag='eval'
+    model.eval()
+    eval_loss, eval_accuracy = 0, 0
+    nb_eval_steps, nb_eval_examples = 0, 0
+    logits_all=None
+    with torch.no_grad():
+        for input_ids, input_mask, segment_ids, label_ids in eval_dataloader:
+            input_ids = input_ids.cuda()
+            input_mask = input_mask.cuda()
+            segment_ids = segment_ids.cuda()
+            label_ids = label_ids.cuda()
+            tmp_eval_loss = model(input_ids, segment_ids, input_mask, label_ids)
+            logits = model(input_ids, segment_ids, input_mask)
+            logits = logits.detach().cpu().numpy()
+            if logits_all is None:
+                logits_all=logits.copy()
+            else:
+                logits_all=np.vstack((logits_all,logits))
+            label_ids = label_ids.to('cpu').numpy()
+            tmp_eval_accuracy = accuracy(logits, label_ids)
+            eval_loss += tmp_eval_loss.mean().item()
+            eval_accuracy += tmp_eval_accuracy
+
+            nb_eval_examples += input_ids.size(0)
+            nb_eval_steps += 1
+
+    eval_loss = eval_loss / nb_eval_steps
+    eval_accuracy = eval_accuracy / nb_eval_examples
+    result = {f'{eval_flag}_loss': eval_loss,
+              'seed': args.seed,
+              f'{eval_flag}_accuracy': eval_accuracy,}
+              # 'global_step': global_step,
+              # 'loss': tr_loss/nb_tr_steps}
+    # logger.info("  %s = %s", f'{eval_flag}_accuracy', str(result[f'{eval_flag}_accuracy']))
+    # logger.info(f"***** {eval_flag} results *****")
+    # for key in sorted(result.keys()):
+    #     logger.info("  %s = %s", key, str(result[key]))
+    model.zero_grad()
+    return logits_all,eval_accuracy
+    # write_result_to_file(args,result)
+
+
 def do_evaluation_back_up(model,eval_dataloader,args):
     if args.do_eval and (args.local_rank == -1 or torch.distributed.get_rank() == 0):
         model.eval()
@@ -312,13 +358,18 @@ def main(MARGIN=0.15):
     parser.add_argument("--dataset_dir",
                         default=None,
                         type=str,
-                        required=True,
+                        required=False,
                         help="The train dataset folder. it should contains .txt files (or other data files) for the task.")
-    parser.add_argument("--dev_file",
+    parser.add_argument("--dev_dir",
                         default=None,
                         type=str,
                         required=False,
-                        help="The dev data file. it is the .txt files (or other data files) for the task.")
+                        help="The dev dataset folder. it should contains .txt files (or other data files) for the task.")
+    parser.add_argument("--test_dir",
+                        default=None,
+                        type=str,
+                        required=False,
+                        help="The test dataset folder. it should contains .txt files (or other data files) for the task.")
 
     parser.add_argument("--bert_model", default=None, type=str, required=True,
                         help="Bert pre-trained model selected in the list: bert-base-uncased, "
@@ -344,7 +395,7 @@ def main(MARGIN=0.15):
                         default=False,
                         action='store_true',
                         help="Whether to run eval on the dev set.")
-    parser.add_argument("--do_test",
+    parser.add_argument("--do_prediction",
                         default=False,
                         action='store_true',
                         help="Whether to run eval on the dev set.")
@@ -362,10 +413,6 @@ def main(MARGIN=0.15):
                         type=int,
                         help="Total batch size for eval.")
     parser.add_argument("--do_margin_loss",
-                        default=0,
-                        type=int,
-                        help="Use margin loss or log-loss.")
-    parser.add_argument("--do_prediction",
                         default=0,
                         type=int,
                         help="Use margin loss or log-loss.")
@@ -447,8 +494,8 @@ def main(MARGIN=0.15):
     if n_gpu > 0:
         torch.cuda.manual_seed_all(args.seed)
 
-    if not args.do_train and not args.do_eval:
-        raise ValueError("At least one of `do_train` or `do_eval` must be True.")
+    if not args.do_train and not args.do_eval and not args.do_prediction:
+        raise ValueError("At least one of `do_train` or `do_eval` or `do_prediction` must be True.")
 
     # if os.path.exists(args.output_dir) and os.listdir(args.output_dir):
     #     raise ValueError("Output directory ({}) already exists and is not empty.".format(args.output_dir))
@@ -466,7 +513,7 @@ def main(MARGIN=0.15):
         # train_examples = read_roc_examples(os.path.join(args.data_dir, 'val_test.csv'), is_training = True)
         # train_examples = read_roc_examples(os.path.join(args.data_dir, 'val_test_valnew.csv'), is_training = True)
         if args.do_eval:
-            eval_examples = read_mcnc_examples(args.dev_file, is_training = True)
+            eval_examples = read_mcnc_examples(args.dev_dir, is_training = False)
             # train_examples=train_examples+eval_examples[0:1000]
             # eval_examples=eval_examples[1000:]
             eval_size=len(eval_examples)
@@ -537,8 +584,8 @@ def main(MARGIN=0.15):
         eval_dataloader = DataLoader(eval_data, sampler=eval_sampler, batch_size=args.eval_batch_size)
         # do_evaluation(model,eval_dataloader,args)
 
-    if args.do_test and (args.local_rank == -1 or torch.distributed.get_rank() == 0):
-        test_examples = read_mcnc_examples(os.path.join(args.data_dir, 'testnew.csv'), is_training = False)
+    if args.do_prediction and (args.local_rank == -1 or torch.distributed.get_rank() == 0):
+        test_examples =read_mcnc_examples(args.test_dir, is_training = False)
         test_features = convert_examples_to_features(
             test_examples, tokenizer, args.max_seq_length, True)
         # logger.info("***** Running testuation *****")
@@ -619,21 +666,26 @@ def main(MARGIN=0.15):
                         optimizer.step()
                     model.zero_grad()
                     global_step += 1
-                    # basilwang 2020-10-21 we don't need eval now!!
-                    # if epoch>0:
-                    #     logits_all,eval_accuracy=do_evaluation(model,eval_dataloader,args,is_training=False)
-                    #     if best_eval_acc<eval_accuracy:
-                    #         best_eval_acc=eval_accuracy
-                    #         best_step=global_step
-                    #         if args.do_prediction:
-                    #             predict_on_test(model,test_dataloader,args,epoch,best_eval_acc)
-                    #         print(best_eval_acc)
-                    #         # torch.save(model.state_dict(), os.path.join(args.output_dir, f"pytorch_model.bin"))
+                    if epoch>0:
+                        logits_all,eval_accuracy=do_evaluation(model,eval_dataloader,args,is_training=False)
+                        if best_eval_acc<eval_accuracy:
+                            best_eval_acc=eval_accuracy
+                            best_step=global_step
+                            if args.do_prediction:
+                                predict_on_test(model,test_dataloader,args,epoch,best_eval_acc)
+                            print(best_eval_acc)
+                            # torch.save(model.state_dict(), os.path.join(args.output_dir, f"pytorch_model.bin"))
             model_save_dir = os.path.join(args.output_dir, f'model{epoch}')
             os.makedirs(model_save_dir, exist_ok=True)
             torch.save(model.state_dict(), os.path.join(model_save_dir, f"pytorch_model.bin"))
         print(best_eval_acc,args.seed,args.margin,args.do_margin_loss,args.learning_rate,args.bert_model,sys.argv[0])
         result=f"best_eval_acc={best_eval_acc},args.seed={args.seed},args.do_margin_loss={args.do_margin_loss},args.margin={args.margin},best_step={best_step},train_batch_size={args.train_batch_size},eval_size={eval_size},script_name={sys.argv[0]},model={args.bert_model},learning_rate={args.learning_rate},num_train_epochs={args.num_train_epochs},max_seq_length={args.max_seq_length}"
         write_result_to_file(args,result)
+
+    if args.do_prediction:
+        _, test_accuracy = do_evaluation(model, test_dataloader, args, is_training=False)
+        print("test accurary is :" + test_accuracy)
+
+
 if __name__ == "__main__":
     main()
