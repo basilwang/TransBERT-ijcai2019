@@ -280,10 +280,11 @@ def do_evaluation(model,eval_dataloader,args,is_training=False):
     logits_all=None
     with torch.no_grad():
         for input_ids, input_mask, segment_ids, label_ids in eval_dataloader:
-            input_ids = input_ids.cuda()
-            input_mask = input_mask.cuda()
-            segment_ids = segment_ids.cuda()
-            label_ids = label_ids.cuda()
+            if not args.no_cuda:
+                input_ids = input_ids.cuda()
+                input_mask = input_mask.cuda()
+                segment_ids = segment_ids.cuda()
+                label_ids = label_ids.cuda()
             tmp_eval_loss = model(input_ids, segment_ids, input_mask, label_ids)
             logits = model(input_ids, segment_ids, input_mask)
             logits = logits.detach().cpu().numpy()
@@ -678,6 +679,7 @@ def main(MARGIN=0.15):
             model_save_dir = os.path.join(args.output_dir, f'model{epoch}')
             os.makedirs(model_save_dir, exist_ok=True)
             torch.save(model.state_dict(), os.path.join(model_save_dir, f"pytorch_model.bin"))
+            print("model has been saved to " + model_save_dir + " bingo!!")
         print(best_eval_acc,args.seed,args.margin,args.do_margin_loss,args.learning_rate,args.bert_model,sys.argv[0])
         result=f"best_eval_acc={best_eval_acc},args.seed={args.seed},args.do_margin_loss={args.do_margin_loss},args.margin={args.margin},best_step={best_step},train_batch_size={args.train_batch_size},eval_size={eval_size},script_name={sys.argv[0]},model={args.bert_model},learning_rate={args.learning_rate},num_train_epochs={args.num_train_epochs},max_seq_length={args.max_seq_length}"
         write_result_to_file(args,result)
