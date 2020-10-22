@@ -45,11 +45,11 @@ if __name__ == "__main__":
         skip_files = []
 
     total_docs = len(text_corpus) - len(skip_files)
-    print "Processing %d documents" % total_docs
+    print("Processing %d documents" % total_docs)
     if total_docs < 1:
         # If we've counted 0 or negative docs, go on anyway
         # The counting doesn't actually check the same docs exist and we want to be sure of this
-        print "  Strange number of docs, but continuing anyway to check none have been missed"
+        print("  Strange number of docs, but continuing anyway to check none have been missed")
         total_docs = 1
     pbar = get_progress_bar(total_docs, title="Extracting docs", counter=True)
     for doc_num, document in enumerate(RichEventDocument.build_documents(text_corpus,

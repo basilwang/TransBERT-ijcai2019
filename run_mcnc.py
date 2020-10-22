@@ -21,7 +21,7 @@ import os,sys
 import argparse
 import random
 from tqdm import tqdm, trange
-#from run_copa import do_evaluation
+from run_copa import do_evaluation
 import numpy as np
 import torch
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
