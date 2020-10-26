@@ -667,14 +667,14 @@ def main(MARGIN=0.15):
                         optimizer.step()
                     model.zero_grad()
                     global_step += 1
-                    if args.do_eval and epoch>0:
-                        logits_all,eval_accuracy=do_evaluation(model,eval_dataloader,args,is_training=False)
-                        if best_eval_acc<eval_accuracy:
-                            best_eval_acc=eval_accuracy
-                            best_step=global_step
-                            if args.do_prediction:
-                                predict_on_test(model,test_dataloader,args,epoch,best_eval_acc)
-                            print(best_eval_acc)
+            if args.do_eval and epoch>0:
+                logits_all,eval_accuracy=do_evaluation(model,eval_dataloader,args,is_training=False)
+                if best_eval_acc<eval_accuracy:
+                    best_eval_acc=eval_accuracy
+                    best_step=global_step
+                    if args.do_prediction:
+                        predict_on_test(model,test_dataloader,args,epoch,best_eval_acc)
+                    print(best_eval_acc)
                             # torch.save(model.state_dict(), os.path.join(args.output_dir, f"pytorch_model.bin"))
             model_save_dir = os.path.join(args.output_dir, f'model{epoch}')
             os.makedirs(model_save_dir, exist_ok=True)
