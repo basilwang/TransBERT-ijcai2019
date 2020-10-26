@@ -669,6 +669,7 @@ def main(MARGIN=0.15):
                     global_step += 1
             if args.do_eval :
                 logits_all,eval_accuracy=do_evaluation(model,eval_dataloader,args,is_training=False)
+                logging.info('Epoch %d, eval_accuracy=%.4f' % (epoch, eval_accuracy))
                 if best_eval_acc<eval_accuracy:
                     best_eval_acc=eval_accuracy
                     best_step=global_step
