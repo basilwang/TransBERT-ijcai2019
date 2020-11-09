@@ -5,6 +5,9 @@ from model.utils import get_hash_for_word, Data_data,verb_net3_mapping_with_args
 from model.gnn_with_args import train
 import torch
 import sys,pickle,time
+
+from pytorch_pretrained_bert import BertTokenizer
+
 torch.manual_seed(1)
 use_cuda = torch.cuda.is_available()
 
@@ -16,7 +19,7 @@ def main():
     ans=pickle.load(open('../data/dev.answer','rb'))
     dev_index=pickle.load(open('../data/dev_index.pickle','rb'))
     print('train data prepare done')
-    word_id,id_vec,word_vec=get_hash_for_word('../data/deepwalk_128_unweighted_with_args.txt',verb_net3_mapping_with_args)
+    word_id,id_word,id_vec,word_vec=get_hash_for_word('../data/deepwalk_128_unweighted_with_args.txt',verb_net3_mapping_with_args)
     print('word vector prepare done')
 
     if len(sys.argv)==9:
@@ -57,7 +60,10 @@ def main():
             # LR=0.001
             MARGIN=0.015
     start=time.time()
-    best_acc,best_epoch=train(dev_index,word_vec,ans,train_data,dev_data,test_data,float(L2_penalty),float(MARGIN),float(LR),int(T),int(BATCH_SIZE),int(EPOCHES),int(PATIENTS),int(HIDDEN_DIM),METRIC)
+    bert_model = "../bert-base-uncased"
+    do_lower_case = True
+    tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=do_lower_case)
+    best_acc,best_epoch=train(tokenizer,id_word,dev_index,word_vec,ans,train_data,dev_data,test_data,float(L2_penalty),float(MARGIN),float(LR),int(T),int(BATCH_SIZE),int(EPOCHES),int(PATIENTS),int(HIDDEN_DIM),METRIC)
     end=time.time()
     print ("Run time: %f s" % (end-start))
     with open('best_result.txt','a') as f:

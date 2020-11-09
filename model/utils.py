@@ -32,6 +32,13 @@ def word_to_id(voc_file):
         dic[s[1]]=s[0]
     return dic
 
+def id_to_word(voc_file):
+    dic={}
+    for s in open(voc_file):
+        s=s.strip().split()
+        dic[s[0]]=s[1]
+    return dic
+
 def get_word_vec(id_vec):
     word_vec=[]
     for i in range(len(id_vec)):
@@ -40,7 +47,7 @@ def get_word_vec(id_vec):
 
 def get_hash_for_word(emb_file,voc_file):
     id_vec=id_to_vec(emb_file)
-    return word_to_id(voc_file),id_vec,get_word_vec(id_vec)
+    return word_to_id(voc_file),id_to_word(voc_file),id_vec,get_word_vec(id_vec)
 
 class Data_data(object):
     def __init__(self, questions,questions2=None):

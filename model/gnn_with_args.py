@@ -9,6 +9,9 @@ import torch.nn.functional as F
 import torch.optim as optim
 import math,time
 import numpy as np
+
+from run_mcnc import InputFeatures
+
 torch.manual_seed(1)
 use_cuda = torch.cuda.is_available()
 
@@ -77,7 +80,7 @@ class GNN(Module):
             weight.data.uniform_(-stdv, stdv)
 
 class Bert_EventGraph_With_Args(Module):
-    def __init__(self, id_word, vocab_size, hidden_dim,word_vec,L2_penalty,MARGIN,LR,T,BATCH_SIZE=1000,dropout_p=0.2):
+    def __init__(self, tokenizer, id_word, vocab_size, hidden_dim,word_vec,L2_penalty,MARGIN,LR,T,BATCH_SIZE=1000,dropout_p=0.2):
         super(Bert_EventGraph_With_Args, self).__init__()
         self.id_word = id_word
         self.hidden_dim = hidden_dim
@@ -88,6 +91,7 @@ class Bert_EventGraph_With_Args(Module):
         # self.embedding.weight.requires_grad=False
         self.gnn = GNN(self.hidden_dim,T)
         # self.fnn = FNN(self.hidden_dim)
+        self.tokenizer = tokenizer
         
         # compute
         self.linear_s_one=nn.Linear(hidden_dim, 1,bias=False)
@@ -139,6 +143,99 @@ class Bert_EventGraph_With_Args(Module):
         elif metric=='multi':
             scores=self.multi[0]*self.metric_euclid(a,b)+self.multi[1]*self.metric_dot(a,b)+self.multi[2]*self.metric_cosine(a,b)
         return scores
+
+    def convert_examples_to_features(self,examples, max_seq_length,
+                                     is_training):
+        tokenizer = self.tokenizer
+        """Loads a data file into a list of `InputBatch`s."""
+
+        # roc is a multiple choice task. To perform this task using Bert,
+        # we will use the formatting proposed in "Improving Language
+        # Understanding by Generative Pre-Training" and suggested by
+        # @jacobdevlin-google in this issue
+        # https://github.com/google-research/bert/issues/38.
+        #
+        # Each choice will correspond to a sample on which we run the
+        # inference. For a given roc example, we will create the 4
+        # following inputs:
+        # - [CLS] context [SEP] choice_1 [SEP]
+        # - [CLS] context [SEP] choice_2 [SEP]
+        # - [CLS] context [SEP] choice_3 [SEP]
+        # - [CLS] context [SEP] choice_4 [SEP]
+        # The model will output a single value for each input. To get the
+        # final decision of the model, we will run a softmax over these 4
+        # outputs.
+        features = []
+        for example_index, example in enumerate(examples):
+            context_tokens = tokenizer.tokenize(example.context_sentence)
+
+            choices_features = []
+            for ending_index, ending in enumerate(example.endings):
+                # We create a copy of the context tokens in order to be
+                # able to shrink it according to ending_tokens
+                context_tokens_choice = context_tokens[:]
+                ending_tokens = tokenizer.tokenize(ending)
+                # Modifies `context_tokens_choice` and `ending_tokens` in
+                # place so that the total length is less than the
+                # specified length.  Account for [CLS], [SEP], [SEP] with
+                # "- 3"
+                self._truncate_seq_pair(context_tokens_choice, ending_tokens, max_seq_length - 3)
+
+                tokens = ["[CLS]"] + context_tokens_choice + ["[SEP]"] + ending_tokens + ["[SEP]"]
+                segment_ids = [0] * (len(context_tokens_choice) + 2) + [1] * (len(ending_tokens) + 1)
+
+                input_ids = tokenizer.convert_tokens_to_ids(tokens)
+                input_mask = [1] * len(input_ids)
+
+                # Zero-pad up to the sequence length.
+                padding = [0] * (max_seq_length - len(input_ids))
+                input_ids += padding
+                input_mask += padding
+                segment_ids += padding
+
+                assert len(input_ids) == max_seq_length
+                assert len(input_mask) == max_seq_length
+                assert len(segment_ids) == max_seq_length
+
+                choices_features.append((tokens, input_ids, input_mask, segment_ids))
+
+            label = example.label
+            # if example_index < 5:
+            #     logger.info("*** Example ***")
+            #     logger.info(f"roc_id: {example.roc_id}")
+            #     for choice_idx, (tokens, input_ids, input_mask, segment_ids) in enumerate(choices_features):
+            #         logger.info(f"choice: {choice_idx}")
+            #         logger.info(f"tokens: {' '.join(tokens)}")
+            #         logger.info(f"input_ids: {' '.join(map(str, input_ids))}")
+            #         logger.info(f"input_mask: {' '.join(map(str, input_mask))}")
+            #         logger.info(f"segment_ids: {' '.join(map(str, segment_ids))}")
+            #     if is_training:
+            #         logger.info(f"label: {label}")
+
+            features.append(
+                InputFeatures(
+                    choices_features=choices_features,
+                    label=label
+                )
+            )
+
+        return features
+
+    def _truncate_seq_pair(self,tokens_a, tokens_b, max_length):
+        """Truncates a sequence pair in place to the maximum length."""
+
+        # This is a simple heuristic which will always truncate the longer sequence
+        # one token at a time. This makes more sense than truncating an equal percent
+        # of tokens from each, since if one sequence is very short then each token
+        # that's truncated likely contains more information than a longer sequence.
+        while True:
+            total_length = len(tokens_a) + len(tokens_b)
+            if total_length <= max_length:
+                break
+            if len(tokens_a) > len(tokens_b):
+                tokens_a.pop()
+            else:
+                tokens_b.pop()
 
     def forward(self, input,A,metric='euclid',nn_type='gnn'):
         names = ['id', 'data']
@@ -251,8 +348,8 @@ class Bert_EventGraph_With_Args(Module):
         elif isinstance(m, nn.Linear):
             nn.init.xavier_uniform(m.weight)
 
-def train(id_word,dev_index,word_vec,ans,train_data,dev_data,test_data,L2_penalty,MARGIN,LR,T,BATCH_SIZE,EPOCHES,PATIENTS,HIDDEN_DIM,METRIC='euclid'):
-    model=trans_to_cuda(Bert_EventGraph_With_Args(id_word,len(word_vec), HIDDEN_DIM, word_vec, L2_penalty, MARGIN, LR, T, BATCH_SIZE))
+def train(tokenizer, id_word,dev_index,word_vec,ans,train_data,dev_data,test_data,L2_penalty,MARGIN,LR,T,BATCH_SIZE,EPOCHES,PATIENTS,HIDDEN_DIM,METRIC='euclid'):
+    model=trans_to_cuda(Bert_EventGraph_With_Args(tokenizer, id_word,len(word_vec), HIDDEN_DIM, word_vec, L2_penalty, MARGIN, LR, T, BATCH_SIZE))
     model.optimizer.zero_grad() 
     # model.scheduler.step()
     # model.apply(model.weights_init)
