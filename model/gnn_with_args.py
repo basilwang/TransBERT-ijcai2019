@@ -8,6 +8,7 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 import torch.optim as optim
 import math,time
+import numpy as np
 torch.manual_seed(1)
 use_cuda = torch.cuda.is_available()
 
@@ -75,9 +76,10 @@ class GNN(Module):
         for weight in self.parameters():
             weight.data.uniform_(-stdv, stdv)
 
-class EventGraph_With_Args(Module):
-    def __init__(self, vocab_size, hidden_dim,word_vec,L2_penalty,MARGIN,LR,T,BATCH_SIZE=1000,dropout_p=0.2):
-        super(EventGraph_With_Args, self).__init__()
+class Bert_EventGraph_With_Args(Module):
+    def __init__(self, id_word, vocab_size, hidden_dim,word_vec,L2_penalty,MARGIN,LR,T,BATCH_SIZE=1000,dropout_p=0.2):
+        super(Bert_EventGraph_With_Args, self).__init__()
+        self.id_word = id_word
         self.hidden_dim = hidden_dim
         self.vocab_size=vocab_size
         self.batch_size=BATCH_SIZE
@@ -139,6 +141,12 @@ class EventGraph_With_Args(Module):
         return scores
 
     def forward(self, input,A,metric='euclid',nn_type='gnn'):
+        names = ['id', 'data']
+        formats = ['int', 'S30']
+        dtype = dict(names=names, formats=formats)
+        array = np.array(list(self.id_word.items()), dtype=dtype)
+        # basilwang 2020-11-9 we can use this to get all the word
+        array1 = array[input[0]]
         hidden = self.embedding(input)  #batch_size*(13*4)*128
         hidden=torch.cat((hidden[:,0:13,:],hidden[:,13:26,:],hidden[:,26:39,:],hidden[:,39:52,:]),2)        
         if nn_type=='gnn':
@@ -243,8 +251,8 @@ class EventGraph_With_Args(Module):
         elif isinstance(m, nn.Linear):
             nn.init.xavier_uniform(m.weight)
 
-def train(dev_index,word_vec,ans,train_data,dev_data,test_data,L2_penalty,MARGIN,LR,T,BATCH_SIZE,EPOCHES,PATIENTS,HIDDEN_DIM,METRIC='euclid'):
-    model=trans_to_cuda(EventGraph_With_Args(len(word_vec),HIDDEN_DIM,word_vec,L2_penalty,MARGIN,LR,T,BATCH_SIZE))   
+def train(id_word,dev_index,word_vec,ans,train_data,dev_data,test_data,L2_penalty,MARGIN,LR,T,BATCH_SIZE,EPOCHES,PATIENTS,HIDDEN_DIM,METRIC='euclid'):
+    model=trans_to_cuda(Bert_EventGraph_With_Args(id_word,len(word_vec), HIDDEN_DIM, word_vec, L2_penalty, MARGIN, LR, T, BATCH_SIZE))
     model.optimizer.zero_grad() 
     # model.scheduler.step()
     # model.apply(model.weights_init)
