@@ -6,7 +6,7 @@ from model.gnn_with_args import train
 import torch
 import sys,pickle,time
 
-from pytorch_pretrained_bert import BertTokenizer
+from pytorch_pretrained_bert import BertTokenizer, BertConfig
 
 torch.manual_seed(1)
 use_cuda = torch.cuda.is_available()
@@ -63,7 +63,10 @@ def main():
     bert_model = "../bert-base-uncased"
     do_lower_case = True
     tokenizer = BertTokenizer.from_pretrained(bert_model, do_lower_case=do_lower_case)
-    best_acc,best_epoch=train(tokenizer,id_word,dev_index,word_vec,ans,train_data,dev_data,test_data,float(L2_penalty),float(MARGIN),float(LR),int(T),int(BATCH_SIZE),int(EPOCHES),int(PATIENTS),int(HIDDEN_DIM),METRIC)
+    CONFIG_NAME = 'bert_config.json'
+    config_file = bert_model + '/' + CONFIG_NAME
+    bert_config = BertConfig.from_json_file(config_file)
+    best_acc,best_epoch=train(bert_config, tokenizer,id_word,dev_index,word_vec,ans,train_data,dev_data,test_data,float(L2_penalty),float(MARGIN),float(LR),int(T),int(BATCH_SIZE),int(EPOCHES),int(PATIENTS),int(HIDDEN_DIM),METRIC)
     end=time.time()
     print ("Run time: %f s" % (end-start))
     with open('best_result.txt','a') as f:

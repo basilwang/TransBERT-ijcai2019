@@ -1,19 +1,52 @@
 #coding:utf8
 # This is the SGNN model described in our ijcai paper.
+from entity_narrative.eval.multiple_choice import MultipleChoiceQuestion
 from model.utils import trans_to_cuda
 import torch
 import torch.nn as nn
-from torch.nn import Parameter,Module
+from torch.nn import Parameter, Module, CrossEntropyLoss
 from torch.autograd import Variable
 import torch.nn.functional as F
 import torch.optim as optim
 import math,time
 import numpy as np
 
-from run_mcnc import InputFeatures
+from pytorch_pretrained_bert import BertModel
+from run_mcnc import InputFeatures, select_field, MCNCEventExample
 
 torch.manual_seed(1)
 use_cuda = torch.cuda.is_available()
+
+max_seq_length = 128
+
+
+
+class SGNN_MCNCEventExample(object):
+    """A single training/test example for the roc dataset."""
+    def __init__(self, context_sentence,endings,label=None):
+        self.context_sentence = context_sentence
+        self.endings = endings
+
+        self.label = label
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
+        l = [
+            f"context_sentence: {self.context_sentence}",
+            f"ending1: {self.endings[0]}",
+            f"ending2: {self.endings[1]}",
+            f"ending3: {self.endings[2]}",
+            f"ending4: {self.endings[3]}",
+            f"ending5: {self.endings[4]}"
+        ]
+
+        if self.label is not None:
+            l.append(f"label: {self.label}")
+
+        return ", ".join(l)
+
 
 
 class FNN(Module):
@@ -80,7 +113,7 @@ class GNN(Module):
             weight.data.uniform_(-stdv, stdv)
 
 class Bert_EventGraph_With_Args(Module):
-    def __init__(self, tokenizer, id_word, vocab_size, hidden_dim,word_vec,L2_penalty,MARGIN,LR,T,BATCH_SIZE=1000,dropout_p=0.2):
+    def __init__(self, bert_config, tokenizer, id_word, vocab_size, hidden_dim,word_vec,L2_penalty,MARGIN,LR,T,BATCH_SIZE=1000,dropout_p=0.2):
         super(Bert_EventGraph_With_Args, self).__init__()
         self.id_word = id_word
         self.hidden_dim = hidden_dim
@@ -92,7 +125,9 @@ class Bert_EventGraph_With_Args(Module):
         self.gnn = GNN(self.hidden_dim,T)
         # self.fnn = FNN(self.hidden_dim)
         self.tokenizer = tokenizer
-        
+        self.bert = BertModel(bert_config)
+        self.bert_dropout = nn.Dropout(bert_config.hidden_dropout_prob)
+        self.bert_classifier = nn.Linear(bert_config.hidden_size, 1)
         # compute
         self.linear_s_one=nn.Linear(hidden_dim, 1,bias=False)
         self.linear_s_two=nn.Linear(hidden_dim, 1,bias=True)
@@ -238,12 +273,93 @@ class Bert_EventGraph_With_Args(Module):
                 tokens_b.pop()
 
     def forward(self, input,A,metric='euclid',nn_type='gnn'):
-        names = ['id', 'data']
-        formats = ['int', 'S30']
-        dtype = dict(names=names, formats=formats)
-        array = np.array(list(self.id_word.items()), dtype=dtype)
+        # names = ['id', 'data']
+        # formats = ['int', 'S30']
+        # dtype = dict(names=names, formats=formats)
+        # id_word_array = np.array(list(self.id_word.items()), dtype=dtype)
+
+        # names = ['data']
+        # formats = ['S']
+        # dtype = dict(names=names, formats=formats)
+        id_word_array = np.array(list(self.id_word.values()), dtype='U')
+
         # basilwang 2020-11-9 we can use this to get all the word
-        array1 = array[input[0]]
+        input_raw_array = id_word_array[input]
+        node_array = input_raw_array[:, 0:13]
+        node_subject_array = input_raw_array[:, 13:26]
+        node_object_array = input_raw_array[:, 26:39]
+        node_prep_array = input_raw_array[:, 39:52]
+        #array1 = array[input[0]]
+        context_sentence_array = []
+        for i in range(8):
+            if i == 0:
+                context_sentence_array = np.concatenate((node_subject_array[:,i].reshape(-1,1), node_array[:,i].reshape(-1,1) ,node_object_array[:,i].reshape(-1,1) ,node_prep_array[:,i].reshape(-1,1)),1)
+            else :
+                context_sentence =  np.concatenate((node_subject_array[:,i].reshape(-1,1), node_array[:,i].reshape(-1,1) ,node_object_array[:,i].reshape(-1,1) ,node_prep_array[:,i].reshape(-1,1)),1)
+                context_sentence_array = np.concatenate((context_sentence_array,context_sentence),1)
+        ending1_array = np.concatenate((node_subject_array[:, 8].reshape(-1,1), node_array[:, 8].reshape(-1,1) ,node_object_array[:,8].reshape(-1,1) ,node_prep_array[:,8].reshape(-1,1)),1)
+        ending2_array = np.concatenate((node_subject_array[:, 9].reshape(-1,1), node_array[:, 9].reshape(-1,1) ,node_object_array[:,9].reshape(-1,1) ,node_prep_array[:,9].reshape(-1,1)),1)
+        ending3_array = np.concatenate((node_subject_array[:, 10].reshape(-1,1), node_array[:, 10].reshape(-1,1) ,node_object_array[:,10].reshape(-1,1) ,node_prep_array[:,10].reshape(-1,1)),1)
+        ending4_array = np.concatenate((node_subject_array[:, 11].reshape(-1,1), node_array[:, 11].reshape(-1,1) ,node_object_array[:,11].reshape(-1,1) ,node_prep_array[:,11].reshape(-1,1)),1)
+        ending5_array = np.concatenate((node_subject_array[:, 12].reshape(-1,1), node_array[:, 12].reshape(-1,1) ,node_object_array[:,12].reshape(-1,1) ,node_prep_array[:,12].reshape(-1,1)),1)
+
+
+        train_examples = []
+        for index in range(len(input_raw_array)):
+                context_sentence = context_sentence_array[index]
+                ending1  = ending1_array[index]
+                ending2  = ending2_array[index]
+                ending3  = ending3_array[index]
+                ending4  = ending4_array[index]
+                ending5  = ending5_array[index]
+
+                context_sentence = ' '.join(item for item in context_sentence)
+                endings = []
+                ending1 = ' '.join(item for item in ending1)
+                endings.append(ending1)
+                ending2 = ' '.join(item for item in ending2)
+                endings.append(ending2)
+                ending3 = ' '.join(item for item in ending3)
+                endings.append(ending3)
+                ending4 = ' '.join(item for item in ending4)
+                endings.append(ending4)
+                ending5 = ' '.join(item for item in ending5)
+                endings.append(ending5)
+                #2020-11-9 basilwang TODO
+                label  = index
+                sgnn_example = SGNN_MCNCEventExample(context_sentence,endings,label)
+                train_examples.append(sgnn_example)
+        train_features = self.convert_examples_to_features(
+            train_examples, max_seq_length, True)
+        # logger.info("***** Running training *****")
+        # logger.info("  Num examples = %d", len(train_examples))
+        # logger.info("  Batch size = %d", args.train_batch_size)
+        # logger.info("  Num steps = %d", num_train_steps)
+        input_ids = torch.tensor(select_field(train_features, 'input_ids'), dtype=torch.long)
+        attention_mask = torch.tensor(select_field(train_features, 'input_mask'), dtype=torch.long)
+        token_type_ids = torch.tensor(select_field(train_features, 'segment_ids'), dtype=torch.long)
+        labels = torch.tensor([f.label for f in train_features], dtype=torch.long)
+
+        flat_input_ids = input_ids.view(-1, input_ids.size(-1))
+        flat_token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1))
+        flat_attention_mask = attention_mask.view(-1, attention_mask.size(-1))
+        _, pooled_output = self.bert(flat_input_ids, flat_token_type_ids, flat_attention_mask,
+                                     output_all_encoded_layers=False)
+        pooled_output = self.bert_dropout(pooled_output)
+        logits = self.bert_classifier(pooled_output)
+        # logits=self.linear_two(torch.relu(self.linear_one(pooled_output)))
+
+        reshaped_logits = logits.view(-1, self.num_choices)
+
+        if labels is not None:
+            loss_fct = CrossEntropyLoss()
+            loss = loss_fct(reshaped_logits, labels)
+            return loss
+        else:
+            return reshaped_logits
+
+
+
         hidden = self.embedding(input)  #batch_size*(13*4)*128
         hidden=torch.cat((hidden[:,0:13,:],hidden[:,13:26,:],hidden[:,26:39,:],hidden[:,39:52,:]),2)        
         if nn_type=='gnn':
@@ -348,8 +464,8 @@ class Bert_EventGraph_With_Args(Module):
         elif isinstance(m, nn.Linear):
             nn.init.xavier_uniform(m.weight)
 
-def train(tokenizer, id_word,dev_index,word_vec,ans,train_data,dev_data,test_data,L2_penalty,MARGIN,LR,T,BATCH_SIZE,EPOCHES,PATIENTS,HIDDEN_DIM,METRIC='euclid'):
-    model=trans_to_cuda(Bert_EventGraph_With_Args(tokenizer, id_word,len(word_vec), HIDDEN_DIM, word_vec, L2_penalty, MARGIN, LR, T, BATCH_SIZE))
+def train(bert_config, tokenizer, id_word,dev_index,word_vec,ans,train_data,dev_data,test_data,L2_penalty,MARGIN,LR,T,BATCH_SIZE,EPOCHES,PATIENTS,HIDDEN_DIM,METRIC='euclid'):
+    model=trans_to_cuda(Bert_EventGraph_With_Args(bert_config ,tokenizer, id_word,len(word_vec), HIDDEN_DIM, word_vec, L2_penalty, MARGIN, LR, T, BATCH_SIZE))
     model.optimizer.zero_grad() 
     # model.scheduler.step()
     # model.apply(model.weights_init)
