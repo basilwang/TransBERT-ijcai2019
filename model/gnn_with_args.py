@@ -279,7 +279,7 @@ class Bert_EventGraph_With_Args(Module):
             else:
                 tokens_b.pop()
 
-    def forward(self, input, A, labels, metric='euclid', nn_type='gnn'):
+    def forward(self, input, A, labels, metric='euclid', nn_type='gnn',do_eval=False):
         # names = ['id', 'data']
         # formats = ['int', 'S30']
         # dtype = dict(names=names, formats=formats)
@@ -288,96 +288,98 @@ class Bert_EventGraph_With_Args(Module):
         # names = ['data']
         # formats = ['S']
         # dtype = dict(names=names, formats=formats)
-        id_word_array = np.array(list(self.id_word.values()), dtype='U')
+        bert_loss = 0
+        if not do_eval :
+            id_word_array = np.array(list(self.id_word.values()), dtype='U')
 
-        # basilwang 2020-11-9 we can use this to get all the word
-        input_raw_array = id_word_array[input.cpu()]
-        node_array = input_raw_array[:, 0:13]
-        node_subject_array = input_raw_array[:, 13:26]
-        node_object_array = input_raw_array[:, 26:39]
-        node_prep_array = input_raw_array[:, 39:52]
-        # array1 = array[input[0]]
-        context_sentence_array = []
-        for i in range(8):
-            if i == 0:
-                context_sentence_array = np.concatenate((node_subject_array[:, i].reshape(-1, 1),
-                                                         node_array[:, i].reshape(-1, 1),
-                                                         node_object_array[:, i].reshape(-1, 1),
-                                                         node_prep_array[:, i].reshape(-1, 1)), 1)
+            # basilwang 2020-11-9 we can use this to get all the word
+            input_raw_array = id_word_array[input.cpu()]
+            node_array = input_raw_array[:, 0:13]
+            node_subject_array = input_raw_array[:, 13:26]
+            node_object_array = input_raw_array[:, 26:39]
+            node_prep_array = input_raw_array[:, 39:52]
+            # array1 = array[input[0]]
+            context_sentence_array = []
+            for i in range(8):
+                if i == 0:
+                    context_sentence_array = np.concatenate((node_subject_array[:, i].reshape(-1, 1),
+                                                             node_array[:, i].reshape(-1, 1),
+                                                             node_object_array[:, i].reshape(-1, 1),
+                                                             node_prep_array[:, i].reshape(-1, 1)), 1)
+                else:
+                    context_sentence = np.concatenate((node_subject_array[:, i].reshape(-1, 1),
+                                                       node_array[:, i].reshape(-1, 1),
+                                                       node_object_array[:, i].reshape(-1, 1),
+                                                       node_prep_array[:, i].reshape(-1, 1)), 1)
+                    context_sentence_array = np.concatenate((context_sentence_array, context_sentence), 1)
+            ending1_array = np.concatenate((node_subject_array[:, 8].reshape(-1, 1), node_array[:, 8].reshape(-1, 1),
+                                            node_object_array[:, 8].reshape(-1, 1), node_prep_array[:, 8].reshape(-1, 1)),
+                                           1)
+            ending2_array = np.concatenate((node_subject_array[:, 9].reshape(-1, 1), node_array[:, 9].reshape(-1, 1),
+                                            node_object_array[:, 9].reshape(-1, 1), node_prep_array[:, 9].reshape(-1, 1)),
+                                           1)
+            ending3_array = np.concatenate((node_subject_array[:, 10].reshape(-1, 1), node_array[:, 10].reshape(-1, 1),
+                                            node_object_array[:, 10].reshape(-1, 1), node_prep_array[:, 10].reshape(-1, 1)),
+                                           1)
+            ending4_array = np.concatenate((node_subject_array[:, 11].reshape(-1, 1), node_array[:, 11].reshape(-1, 1),
+                                            node_object_array[:, 11].reshape(-1, 1), node_prep_array[:, 11].reshape(-1, 1)),
+                                           1)
+            ending5_array = np.concatenate((node_subject_array[:, 12].reshape(-1, 1), node_array[:, 12].reshape(-1, 1),
+                                            node_object_array[:, 12].reshape(-1, 1), node_prep_array[:, 12].reshape(-1, 1)),
+                                           1)
+
+            train_examples = []
+            for index in range(len(input_raw_array)):
+                context_sentence = context_sentence_array[index]
+                ending1 = ending1_array[index]
+                ending2 = ending2_array[index]
+                ending3 = ending3_array[index]
+                ending4 = ending4_array[index]
+                ending5 = ending5_array[index]
+
+                context_sentence = ' '.join(item for item in context_sentence)
+                endings = []
+                ending1 = ' '.join(item for item in ending1)
+                endings.append(ending1)
+                ending2 = ' '.join(item for item in ending2)
+                endings.append(ending2)
+                ending3 = ' '.join(item for item in ending3)
+                endings.append(ending3)
+                ending4 = ' '.join(item for item in ending4)
+                endings.append(ending4)
+                ending5 = ' '.join(item for item in ending5)
+                endings.append(ending5)
+                # 2020-11-9 basilwang TODO
+                label = labels[index]
+                sgnn_example = SGNN_MCNCEventExample(context_sentence, endings, label)
+                train_examples.append(sgnn_example)
+            train_features = self.convert_examples_to_features(
+                train_examples, max_seq_length, True)
+            # logger.info("***** Running training *****")
+            # logger.info("  Num examples = %d", len(train_examples))
+            # logger.info("  Batch size = %d", args.train_batch_size)
+            # logger.info("  Num steps = %d", num_train_steps)
+            input_ids = torch.tensor(select_field(train_features, 'input_ids'), dtype=torch.long)
+            attention_mask = torch.tensor(select_field(train_features, 'input_mask'), dtype=torch.long)
+            token_type_ids = torch.tensor(select_field(train_features, 'segment_ids'), dtype=torch.long)
+            labels = torch.tensor([f.label for f in train_features], dtype=torch.long)
+
+            flat_input_ids = input_ids.view(-1, input_ids.size(-1))
+            flat_token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1))
+            flat_attention_mask = attention_mask.view(-1, attention_mask.size(-1))
+            _, pooled_output = self.bert(trans_to_cuda(flat_input_ids), trans_to_cuda(flat_token_type_ids), trans_to_cuda(flat_attention_mask),
+                                         output_all_encoded_layers=False)
+            pooled_output = self.bert_dropout(pooled_output)
+            logits = self.bert_classifier(pooled_output)
+            # logits=self.linear_two(torch.relu(self.linear_one(pooled_output)))
+
+            reshaped_logits = logits.view(-1, self.num_choices)
+
+            if labels is not None:
+                loss_fct = CrossEntropyLoss()
+                bert_loss = loss_fct(reshaped_logits, trans_to_cuda(labels))
             else:
-                context_sentence = np.concatenate((node_subject_array[:, i].reshape(-1, 1),
-                                                   node_array[:, i].reshape(-1, 1),
-                                                   node_object_array[:, i].reshape(-1, 1),
-                                                   node_prep_array[:, i].reshape(-1, 1)), 1)
-                context_sentence_array = np.concatenate((context_sentence_array, context_sentence), 1)
-        ending1_array = np.concatenate((node_subject_array[:, 8].reshape(-1, 1), node_array[:, 8].reshape(-1, 1),
-                                        node_object_array[:, 8].reshape(-1, 1), node_prep_array[:, 8].reshape(-1, 1)),
-                                       1)
-        ending2_array = np.concatenate((node_subject_array[:, 9].reshape(-1, 1), node_array[:, 9].reshape(-1, 1),
-                                        node_object_array[:, 9].reshape(-1, 1), node_prep_array[:, 9].reshape(-1, 1)),
-                                       1)
-        ending3_array = np.concatenate((node_subject_array[:, 10].reshape(-1, 1), node_array[:, 10].reshape(-1, 1),
-                                        node_object_array[:, 10].reshape(-1, 1), node_prep_array[:, 10].reshape(-1, 1)),
-                                       1)
-        ending4_array = np.concatenate((node_subject_array[:, 11].reshape(-1, 1), node_array[:, 11].reshape(-1, 1),
-                                        node_object_array[:, 11].reshape(-1, 1), node_prep_array[:, 11].reshape(-1, 1)),
-                                       1)
-        ending5_array = np.concatenate((node_subject_array[:, 12].reshape(-1, 1), node_array[:, 12].reshape(-1, 1),
-                                        node_object_array[:, 12].reshape(-1, 1), node_prep_array[:, 12].reshape(-1, 1)),
-                                       1)
-
-        train_examples = []
-        for index in range(len(input_raw_array)):
-            context_sentence = context_sentence_array[index]
-            ending1 = ending1_array[index]
-            ending2 = ending2_array[index]
-            ending3 = ending3_array[index]
-            ending4 = ending4_array[index]
-            ending5 = ending5_array[index]
-
-            context_sentence = ' '.join(item for item in context_sentence)
-            endings = []
-            ending1 = ' '.join(item for item in ending1)
-            endings.append(ending1)
-            ending2 = ' '.join(item for item in ending2)
-            endings.append(ending2)
-            ending3 = ' '.join(item for item in ending3)
-            endings.append(ending3)
-            ending4 = ' '.join(item for item in ending4)
-            endings.append(ending4)
-            ending5 = ' '.join(item for item in ending5)
-            endings.append(ending5)
-            # 2020-11-9 basilwang TODO
-            label = labels[index]
-            sgnn_example = SGNN_MCNCEventExample(context_sentence, endings, label)
-            train_examples.append(sgnn_example)
-        train_features = self.convert_examples_to_features(
-            train_examples, max_seq_length, True)
-        # logger.info("***** Running training *****")
-        # logger.info("  Num examples = %d", len(train_examples))
-        # logger.info("  Batch size = %d", args.train_batch_size)
-        # logger.info("  Num steps = %d", num_train_steps)
-        input_ids = torch.tensor(select_field(train_features, 'input_ids'), dtype=torch.long)
-        attention_mask = torch.tensor(select_field(train_features, 'input_mask'), dtype=torch.long)
-        token_type_ids = torch.tensor(select_field(train_features, 'segment_ids'), dtype=torch.long)
-        labels = torch.tensor([f.label for f in train_features], dtype=torch.long)
-
-        flat_input_ids = input_ids.view(-1, input_ids.size(-1))
-        flat_token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1))
-        flat_attention_mask = attention_mask.view(-1, attention_mask.size(-1))
-        _, pooled_output = self.bert(trans_to_cuda(flat_input_ids), trans_to_cuda(flat_token_type_ids), trans_to_cuda(flat_attention_mask),
-                                     output_all_encoded_layers=False)
-        pooled_output = self.bert_dropout(pooled_output)
-        logits = self.bert_classifier(pooled_output)
-        # logits=self.linear_two(torch.relu(self.linear_one(pooled_output)))
-
-        reshaped_logits = logits.view(-1, self.num_choices)
-
-        if labels is not None:
-            loss_fct = CrossEntropyLoss()
-            bert_loss = loss_fct(reshaped_logits, trans_to_cuda(labels))
-        else:
-            bert_loss = reshaped_logits
+                bert_loss = reshaped_logits
 
         hidden = self.embedding(input)  # batch_size*(13*4)*128
         hidden = torch.cat((hidden[:, 0:13, :], hidden[:, 13:26, :], hidden[:, 26:39, :], hidden[:, 39:52, :]), 2)
@@ -387,6 +389,7 @@ class Bert_EventGraph_With_Args(Module):
         # elif nn_type=='fnn':
         # hidden = self.fnn(hidden)
         scores = self.compute_scores(hidden, metric)
+
         loss = self.loss_function(scores, trans_to_cuda(labels))
         alpha = 0.2
         loss = (1 - alpha) * loss + alpha * bert_loss
@@ -394,7 +397,7 @@ class Bert_EventGraph_With_Args(Module):
         return scores, loss
 
     def predict(self, input, A, targets, dev_index, metric='euclid'):
-        scores, _ = self.forward(input, A,targets, metric)
+        scores, _ = self.forward(input, A,targets, metric,do_eval=True)
         # input和scores处理一下
         for index in dev_index:
             scores[index] = -100.0
@@ -412,6 +415,8 @@ class Bert_EventGraph_With_Args(Module):
         accuracy3 = num_correct3 / samples * 100.0
         accuracy4 = num_correct4 / samples * 100.0
         return accuracy0, accuracy1, accuracy2, accuracy3, accuracy4
+
+        # return 0, 0, 0, 0, 0
 
     def metric_dot(self, v0, v1):
         return torch.sum(v0 * v1, 1).view(-1, 5)
@@ -514,33 +519,34 @@ def train(bert_config, tokenizer, id_word, dev_index, word_vec, ans, train_data,
             data, epoch_flag = train_data.next_batch(BATCH_SIZE)
 
             model.train()
-            with torch.no_grad():
-                _, loss = model(data[1], data[0], data[2], metric=METRIC)
+            _, loss = model(data[1], data[0], data[2], metric=METRIC)
             loss.backward()
             model.optimizer.step()
             model.optimizer.zero_grad()
             # if (EPOCHES*EPO+epoch+1) % (1000/BATCH_SIZE)==0:
             data = dev_data.all_data()
-            #model.eval()
-            # with torch.no_grad():
-            #     accuracy, accuracy1, accuracy2, accuracy3, accuracy4 = model.predict(data[1].data,
-            #                                                                          data[0], data[2], dev_index,
-            #                                                                          metric=METRIC)
-            # if (EPOCHES * EPO + epoch) % 50 == 0:
-            #     print('Epoch %d : Eval  Acc: %f, %f, %f, %f, %f, %s' % (
-            #     EPOCHES * EPO + epoch, accuracy.data.item(), accuracy1.data.item(), accuracy2.item(), accuracy3.item(),
-            #     accuracy4.item(), METRIC))
-            # acc_list.append((time.time() - start, accuracy.data.item()))
-            # if best_acc < accuracy.data.item():
-            #     best_acc = accuracy.data.item()
-            #     if best_acc >= 52.7:
-            #         torch.save(model.state_dict(), ('../data/gnn_%s_acc_%s_.model' % (METRIC, best_acc)))
-            #     best_epoch = EPOCHES * EPO + epoch + 1
-            #     patient = 0
-            # else:
-            #     patient += 1
-            # if patient > PATIENTS:
-            #     break
+            model.eval()
+            with torch.no_grad():
+                accuracy, accuracy1, accuracy2, accuracy3, accuracy4 = model.predict(data[1].data,
+                                                                                     data[0], data[2], dev_index,
+                                                                                     metric=METRIC)
+            model.zero_grad()
+
+            if (EPOCHES * EPO + epoch) % 50 == 0:
+                print('Epoch %d : Eval  Acc: %f, %f, %f, %f, %f, %s' % (
+                EPOCHES * EPO + epoch, accuracy.data.item(), accuracy1.data.item(), accuracy2.item(), accuracy3.item(),
+                accuracy4.item(), METRIC))
+            acc_list.append((time.time() - start, accuracy.data.item()))
+            if best_acc < accuracy.data.item():
+                best_acc = accuracy.data.item()
+                if best_acc >= 52.7:
+                    torch.save(model.state_dict(), ('../data/gnn_%s_acc_%s_.model' % (METRIC, best_acc)))
+                best_epoch = EPOCHES * EPO + epoch + 1
+                patient = 0
+            else:
+                patient += 1
+            if patient > PATIENTS:
+                break
         if epoch == (EPOCHES - 1):
             EPO += 1
             continue
