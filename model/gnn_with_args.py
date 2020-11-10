@@ -115,6 +115,8 @@ class GNN(Module):
 class Bert_EventGraph_With_Args(Module):
     def __init__(self, bert_config, tokenizer, id_word, vocab_size, hidden_dim,word_vec,L2_penalty,MARGIN,LR,T,BATCH_SIZE=1000,dropout_p=0.2):
         super(Bert_EventGraph_With_Args, self).__init__()
+
+        self.num_choices = 5
         self.id_word = id_word
         self.hidden_dim = hidden_dim
         self.vocab_size=vocab_size
@@ -326,7 +328,7 @@ class Bert_EventGraph_With_Args(Module):
                 ending5 = ' '.join(item for item in ending5)
                 endings.append(ending5)
                 #2020-11-9 basilwang TODO
-                label  = index
+                label  = 0
                 sgnn_example = SGNN_MCNCEventExample(context_sentence,endings,label)
                 train_examples.append(sgnn_example)
         train_features = self.convert_examples_to_features(
@@ -354,9 +356,9 @@ class Bert_EventGraph_With_Args(Module):
         if labels is not None:
             loss_fct = CrossEntropyLoss()
             loss = loss_fct(reshaped_logits, labels)
-            return loss
+            bert_loss = loss
         else:
-            return reshaped_logits
+            bert_loss = reshaped_logits
 
 
 
@@ -370,7 +372,7 @@ class Bert_EventGraph_With_Args(Module):
         # hidden = self.fnn(hidden)
         scores=self.compute_scores(hidden,metric)
 
-        return scores
+        return bert_loss,scores
 
     def predict(self,input,A,targets,dev_index,metric='euclid'):
         scores=self.forward(input,A,metric)
@@ -480,8 +482,9 @@ def train(bert_config, tokenizer, id_word,dev_index,word_vec,ans,train_data,dev_
         for epoch in range(EPOCHES):
             data,epoch_flag=train_data.next_batch(BATCH_SIZE)
             model.train()
-            scores=model(data[1],data[0],metric=METRIC) 
+            bert_loss,scores=model(data[1],data[0],metric=METRIC)
             loss = model.loss_function(scores,data[2])
+            bert_loss.backward()
             loss.backward()
             model.optimizer.step()
             model.optimizer.zero_grad()
