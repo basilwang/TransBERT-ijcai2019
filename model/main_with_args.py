@@ -30,7 +30,7 @@ def main():
         LR=0.0001
         T=2
         MARGIN=0.015
-        BATCH_SIZE=2
+        BATCH_SIZE=10
         EPOCHES=520
         PATIENTS=500
         METRIC='euclid'
@@ -38,7 +38,7 @@ def main():
         if METRIC=='euclid':  #   
             L2_penalty=0.00001
             LR=0.0001
-            BATCH_SIZE=2
+            BATCH_SIZE=10
             MARGIN=0.015
             PATIENTS=500
         if METRIC=='dot':  # 

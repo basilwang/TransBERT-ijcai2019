@@ -391,9 +391,9 @@ class Bert_EventGraph_With_Args(Module):
         scores = self.compute_scores(hidden, metric)
 
         loss = self.loss_function(scores, trans_to_cuda(labels))
+        #print(loss)
         alpha = 0.2
         loss = (1 - alpha) * loss + alpha * bert_loss
-        loss = Variable(loss,requires_grad=True)
         return scores, loss
 
     def predict(self, input, A, targets, dev_index, metric='euclid'):
@@ -521,6 +521,7 @@ def train(bert_config, tokenizer, id_word, dev_index, word_vec, ans, train_data,
             model.train()
             _, loss = model(data[1], data[0], data[2], metric=METRIC)
             loss.backward()
+            #print(loss)
             model.optimizer.step()
             model.optimizer.zero_grad()
             # if (EPOCHES*EPO+epoch+1) % (1000/BATCH_SIZE)==0:
@@ -536,6 +537,7 @@ def train(bert_config, tokenizer, id_word, dev_index, word_vec, ans, train_data,
                 print('Epoch %d : Eval  Acc: %f, %f, %f, %f, %f, %s' % (
                 EPOCHES * EPO + epoch, accuracy.data.item(), accuracy1.data.item(), accuracy2.item(), accuracy3.item(),
                 accuracy4.item(), METRIC))
+                print(loss)
             acc_list.append((time.time() - start, accuracy.data.item()))
             if best_acc < accuracy.data.item():
                 best_acc = accuracy.data.item()
