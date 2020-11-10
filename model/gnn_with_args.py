@@ -337,18 +337,18 @@ class Bert_EventGraph_With_Args(Module):
                 ending4 = ending4_array[index]
                 ending5 = ending5_array[index]
 
-                context_sentence = ' '.join(item for item in context_sentence)
+                context_sentence = ' '.join(item for item in context_sentence).replace('--including_obj','').replace('_obj','').replace('_subj','').replace('+',' ')
                 endings = []
                 ending1 = ' '.join(item for item in ending1)
-                endings.append(ending1)
+                endings.append(ending1.replace('--including_obj','').replace('_obj','').replace('_subj','').replace('+',' '))
                 ending2 = ' '.join(item for item in ending2)
-                endings.append(ending2)
+                endings.append(ending2.replace('--including_obj','').replace('_obj','').replace('_subj','').replace('+',' '))
                 ending3 = ' '.join(item for item in ending3)
-                endings.append(ending3)
+                endings.append(ending3.replace('--including_obj','').replace('_obj','').replace('_subj','').replace('+',' '))
                 ending4 = ' '.join(item for item in ending4)
-                endings.append(ending4)
+                endings.append(ending4.replace('--including_obj','').replace('_obj','').replace('_subj','').replace('+',' '))
                 ending5 = ' '.join(item for item in ending5)
-                endings.append(ending5)
+                endings.append(ending5.replace('--including_obj','').replace('_obj','').replace('_subj','').replace('+',' '))
                 # 2020-11-9 basilwang TODO
                 label = labels[index]
                 sgnn_example = SGNN_MCNCEventExample(context_sentence, endings, label)
