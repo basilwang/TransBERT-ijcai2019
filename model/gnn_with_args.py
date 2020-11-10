@@ -375,8 +375,7 @@ class Bert_EventGraph_With_Args(Module):
 
         if labels is not None:
             loss_fct = CrossEntropyLoss()
-            loss = loss_fct(reshaped_logits, trans_to_cuda(labels))
-            bert_loss = loss
+            bert_loss = loss_fct(reshaped_logits, trans_to_cuda(labels))
         else:
             bert_loss = reshaped_logits
 
@@ -391,7 +390,7 @@ class Bert_EventGraph_With_Args(Module):
         loss = self.loss_function(scores, trans_to_cuda(labels))
         alpha = 0.2
         loss = (1 - alpha) * loss + alpha * bert_loss
-
+        loss = Variable(loss,requires_grad=True)
         return scores, loss
 
     def predict(self, input, A, targets, dev_index, metric='euclid'):
@@ -496,6 +495,7 @@ class Bert_EventGraph_With_Args(Module):
 
 def train(bert_config, tokenizer, id_word, dev_index, word_vec, ans, train_data, dev_data, test_data, L2_penalty,
           MARGIN, LR, T, BATCH_SIZE, EPOCHES, PATIENTS, HIDDEN_DIM, METRIC='euclid'):
+
     model = trans_to_cuda(
         Bert_EventGraph_With_Args(bert_config, tokenizer, id_word, len(word_vec), HIDDEN_DIM, word_vec, L2_penalty,
                                   MARGIN, LR, T, BATCH_SIZE))
@@ -512,32 +512,35 @@ def train(bert_config, tokenizer, id_word, dev_index, word_vec, ans, train_data,
         patient = 0
         for epoch in range(EPOCHES):
             data, epoch_flag = train_data.next_batch(BATCH_SIZE)
+
             model.train()
-            _, loss = model(data[1], data[0], data[2], metric=METRIC)
+            with torch.no_grad():
+                _, loss = model(data[1], data[0], data[2], metric=METRIC)
             loss.backward()
             model.optimizer.step()
             model.optimizer.zero_grad()
             # if (EPOCHES*EPO+epoch+1) % (1000/BATCH_SIZE)==0:
             data = dev_data.all_data()
-            model.eval()
-            accuracy, accuracy1, accuracy2, accuracy3, accuracy4 = model.predict(Variable(data[1].data, volatile=True),
-                                                                                 data[0], data[2], dev_index,
-                                                                                 metric=METRIC)
-            if (EPOCHES * EPO + epoch) % 50 == 0:
-                print('Epoch %d : Eval  Acc: %f, %f, %f, %f, %f, %s' % (
-                EPOCHES * EPO + epoch, accuracy.data.item(), accuracy1.data.item(), accuracy2.item(), accuracy3.item(),
-                accuracy4.item(), METRIC))
-            acc_list.append((time.time() - start, accuracy.data.item()))
-            if best_acc < accuracy.data.item():
-                best_acc = accuracy.data.item()
-                if best_acc >= 52.7:
-                    torch.save(model.state_dict(), ('../data/gnn_%s_acc_%s_.model' % (METRIC, best_acc)))
-                best_epoch = EPOCHES * EPO + epoch + 1
-                patient = 0
-            else:
-                patient += 1
-            if patient > PATIENTS:
-                break
+            #model.eval()
+            # with torch.no_grad():
+            #     accuracy, accuracy1, accuracy2, accuracy3, accuracy4 = model.predict(data[1].data,
+            #                                                                          data[0], data[2], dev_index,
+            #                                                                          metric=METRIC)
+            # if (EPOCHES * EPO + epoch) % 50 == 0:
+            #     print('Epoch %d : Eval  Acc: %f, %f, %f, %f, %f, %s' % (
+            #     EPOCHES * EPO + epoch, accuracy.data.item(), accuracy1.data.item(), accuracy2.item(), accuracy3.item(),
+            #     accuracy4.item(), METRIC))
+            # acc_list.append((time.time() - start, accuracy.data.item()))
+            # if best_acc < accuracy.data.item():
+            #     best_acc = accuracy.data.item()
+            #     if best_acc >= 52.7:
+            #         torch.save(model.state_dict(), ('../data/gnn_%s_acc_%s_.model' % (METRIC, best_acc)))
+            #     best_epoch = EPOCHES * EPO + epoch + 1
+            #     patient = 0
+            # else:
+            #     patient += 1
+            # if patient > PATIENTS:
+            #     break
         if epoch == (EPOCHES - 1):
             EPO += 1
             continue
