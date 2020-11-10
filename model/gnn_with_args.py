@@ -291,7 +291,7 @@ class Bert_EventGraph_With_Args(Module):
         id_word_array = np.array(list(self.id_word.values()), dtype='U')
 
         # basilwang 2020-11-9 we can use this to get all the word
-        input_raw_array = id_word_array[input]
+        input_raw_array = id_word_array[input.cpu()]
         node_array = input_raw_array[:, 0:13]
         node_subject_array = input_raw_array[:, 13:26]
         node_object_array = input_raw_array[:, 26:39]
@@ -365,7 +365,7 @@ class Bert_EventGraph_With_Args(Module):
         flat_input_ids = input_ids.view(-1, input_ids.size(-1))
         flat_token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1))
         flat_attention_mask = attention_mask.view(-1, attention_mask.size(-1))
-        _, pooled_output = self.bert(flat_input_ids, flat_token_type_ids, flat_attention_mask,
+        _, pooled_output = self.bert(trans_to_cuda(flat_input_ids), trans_to_cuda(flat_token_type_ids), trans_to_cuda(flat_attention_mask),
                                      output_all_encoded_layers=False)
         pooled_output = self.bert_dropout(pooled_output)
         logits = self.bert_classifier(pooled_output)
@@ -375,7 +375,7 @@ class Bert_EventGraph_With_Args(Module):
 
         if labels is not None:
             loss_fct = CrossEntropyLoss()
-            loss = loss_fct(reshaped_logits, labels)
+            loss = loss_fct(reshaped_logits, trans_to_cuda(labels))
             bert_loss = loss
         else:
             bert_loss = reshaped_logits
@@ -388,7 +388,7 @@ class Bert_EventGraph_With_Args(Module):
         # elif nn_type=='fnn':
         # hidden = self.fnn(hidden)
         scores = self.compute_scores(hidden, metric)
-        loss = self.loss_function(scores, labels)
+        loss = self.loss_function(scores, trans_to_cuda(labels))
         alpha = 0.2
         loss = (1 - alpha) * loss + alpha * bert_loss
 
